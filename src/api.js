@@ -1,9 +1,8 @@
-const API_BASE =
-  "https://level50-backend-final-production-012c.up.railway.app";
+import axios from "axios";
 
-export async function fetchAuditReport(limit = 50) {
-  const res = await fetch(`${API_BASE}/api/audit/report?limit=${limit}`);
-  if (!res.ok) throw new Error("API failed");
-  const data = await res.json();
-  return data.rows || [];
+const API_BASE = "https://level50-backend-final.vercel.app";
+
+export async function fetchAuditLogs() {
+  const res = await axios.get(`${API_BASE}/audit/logs`);
+  return res.data;
 }
