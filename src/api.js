@@ -1,9 +1,9 @@
 const BASE_URL = "https://level50-backend-final.vercel.app";
 
-export async function fetchAuditReport() {
+export async function getAuditReport() {
   const res = await fetch(`${BASE_URL}/api/audit/report`);
   if (!res.ok) {
-    throw new Error("Failed to fetch audit report");
+    throw new Error("API error");
   }
   return res.json();
 }
