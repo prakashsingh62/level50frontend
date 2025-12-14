@@ -1,154 +1,139 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAuditReport } from "../api";
 
+const PRESET_KEY = "audit_presets_v1";
+
 export default function AuditPage() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
-  // Phase-2 states (already in use)
+  // filters
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState("timestamp");
-  const [sortDir, setSortDir] = useState("desc");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
-  // Phase-3 state
-  const [selectedRow, setSelectedRow] = useState(null);
+  // presets
+  const [presets, setPresets] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PRESET_KEY)) || {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     getAuditReport()
-      .then((res) => setData(res.rows || []))
+      .then(setData)
       .catch((err) => setError(err.message));
   }, []);
 
-  const filteredData = useMemo(() => {
-    let rows = [...data];
+  // persist presets
+  useEffect(() => {
+    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+  }, [presets]);
 
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) =>
-        Object.values(r).some((v) =>
-          String(v || "").toLowerCase().includes(q)
-        )
-      );
-    }
+  const filteredRows = useMemo(() => {
+    if (!data?.rows) return [];
 
-    rows.sort((a, b) => {
-      const A = a[sortKey] ?? "";
-      const B = b[sortKey] ?? "";
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
+    return data.rows.filter((r) => {
+      const text = `${r.timestamp} ${r.run_id} ${r.status} ${r.error_type} ${r.remarks}`.toLowerCase();
+      if (search && !text.includes(search.toLowerCase())) return false;
+
+      if (fromDate && r.timestamp < fromDate) return false;
+      if (toDate && r.timestamp > toDate) return false;
+
+      return true;
     });
+  }, [data, search, fromDate, toDate]);
 
-    return rows;
-  }, [data, search, sortKey, sortDir]);
+  const savePreset = () => {
+    const name = prompt("Preset name?");
+    if (!name) return;
 
-  function toggleSort(key) {
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
+    setPresets((p) => ({
+      ...p,
+      [name]: { search, fromDate, toDate }
+    }));
+  };
+
+  const applyPreset = (p) => {
+    setSearch(p.search || "");
+    setFromDate(p.fromDate || "");
+    setToDate(p.toDate || "");
+  };
+
+  const deletePreset = (name) => {
+    if (!confirm(`Delete preset "${name}"?`)) return;
+    setPresets((p) => {
+      const copy = { ...p };
+      delete copy[name];
+      return copy;
+    });
+  };
 
   return (
-    <div style={{ padding: 20, position: "relative" }}>
+    <div style={{ padding: 20 }}>
       <h1>Audit Report</h1>
       <p style={{ color: "#666" }}>
         🔒 Safe Mode — Read only. Table UI in progress.
       </p>
 
-      <input
-        placeholder="Global search…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: 12, padding: 6, width: 240 }}
-      />
+      {/* FILTER BAR */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input
+          placeholder="Global search…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+        <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        <button onClick={savePreset}>Save Preset</button>
+      </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <table width="100%" border="1" cellPadding="8">
-        <thead>
-          <tr>
-            <th onClick={() => toggleSort("timestamp")}>Timestamp ⇅</th>
-            <th onClick={() => toggleSort("run_id")}>Run ID ⇅</th>
-            <th onClick={() => toggleSort("status")}>Status ⇅</th>
-            <th onClick={() => toggleSort("error_type")}>Error Type ⇅</th>
-            <th onClick={() => toggleSort("remarks")}>Remarks ⇅</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredData.map((row, i) => (
-            <tr
-              key={i}
-              onClick={() => setSelectedRow(row)}
-              style={{
-                cursor: "pointer",
-                background:
-                  selectedRow === row ? "#eef6ff" : "transparent",
-              }}
-            >
-              <td>{row.timestamp}</td>
-              <td>{row.run_id || "-"}</td>
-              <td>{row.status}</td>
-              <td>{row.error_type || "-"}</td>
-              <td>{row.remarks || "-"}</td>
-            </tr>
+      {/* PRESETS */}
+      {Object.keys(presets).length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {Object.entries(presets).map(([name, p]) => (
+            <span key={name} style={{ marginRight: 8 }}>
+              <button onClick={() => applyPreset(p)}>{name}</button>
+              <button onClick={() => deletePreset(name)}>✕</button>
+            </span>
           ))}
-        </tbody>
-      </table>
-
-      {/* ===== ROW INSPECTOR ===== */}
-      {selectedRow && (
-        <div
-          onClick={() => setSelectedRow(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.3)",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              height: "100%",
-              width: 360,
-              background: "#fff",
-              padding: 16,
-              boxShadow: "-2px 0 8px rgba(0,0,0,0.2)",
-            }}
-          >
-            <h3>Audit Row Inspector</h3>
-
-            <Inspector label="Timestamp" value={selectedRow.timestamp} />
-            <Inspector label="Run ID" value={selectedRow.run_id} />
-            <Inspector label="Status" value={selectedRow.status} />
-            <Inspector label="Error Type" value={selectedRow.error_type} />
-            <Inspector label="Remarks" value={selectedRow.remarks} />
-
-            <button
-              onClick={() => setSelectedRow(null)}
-              style={{ marginTop: 16 }}
-            >
-              Close
-            </button>
-          </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function Inspector({ label, value }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <strong>{label}</strong>
-      <div style={{ color: "#555", wordBreak: "break-word" }}>
-        {value || "-"}
-      </div>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {!data && !error && <p>Loading…</p>}
+
+      {data && (
+        <table border="1" cellPadding="8" cellSpacing="0" width="100%">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Run ID</th>
+              <th>Status</th>
+              <th>Error Type</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.length === 0 && (
+              <tr>
+                <td colSpan="5" align="center">No records</td>
+              </tr>
+            )}
+            {filteredRows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.timestamp}</td>
+                <td>{r.run_id || "-"}</td>
+                <td>{r.status}</td>
+                <td>{r.error_type || "-"}</td>
+                <td>{r.remarks || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
