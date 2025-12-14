@@ -1,132 +1,131 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAuditReport } from "../api";
 
-const badgeStyle = (value) => {
-  if (!value) return { background: "#eee", color: "#333" };
-
-  const v = String(value).toUpperCase();
-
-  if (v === "SUCCESS")
-    return { background: "#e6fffa", color: "#065f46" };
-
-  if (v === "SYSTEM" || v === "ERROR")
-    return { background: "#fee2e2", color: "#991b1b" };
-
-  return { background: "#f3f4f6", color: "#111827" };
-};
-
 export default function AuditPage() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     getAuditReport()
-      .then(setData)
+      .then((res) => setData(res?.rows ?? []))
       .catch((err) => setError(err.message));
   }, []);
 
-  return (
-    <div style={{ padding: "24px", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ marginBottom: "4px" }}>Audit Report</h1>
+  // 🔒 SAFE: frontend-only sort
+  const sortedRows = useMemo(() => {
+    return [...data].sort((a, b) =>
+      String(b.timestamp).localeCompare(String(a.timestamp))
+    );
+  }, [data]);
 
-      <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "16px" }}>
-        Safe Mode — Read only. Table UI in progress.
+  const statusBadge = (value) => {
+    if (value === "SUCCESS")
+      return <span className="badge success">SUCCESS</span>;
+    if (value === 0 || value === "0")
+      return <span className="badge neutral">SYSTEM</span>;
+    return <span className="badge neutral">{value ?? "-"}</span>;
+  };
+
+  return (
+    <div style={{ padding: "24px" }}>
+      <h1>Audit Report</h1>
+
+      <p className="safe-mode">
+        🔒 Safe Mode — Read only. Table UI in progress.
       </p>
 
-      {error && (
-        <p style={{ color: "#b91c1c", fontWeight: 500 }}>
-          Error: {error}
-        </p>
-      )}
+      {error && <p className="error">Error: {error}</p>}
+      {!error && sortedRows.length === 0 && <p>Loading audit data…</p>}
 
-      {!data && !error && (
-        <p style={{ color: "#6b7280" }}>Loading audit data…</p>
-      )}
-
-      {data && (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "14px",
-            }}
-          >
+      {sortedRows.length > 0 && (
+        <div className="table-wrap">
+          <table>
             <thead>
-              <tr style={{ background: "#f9fafb" }}>
-                {["Timestamp", "Run ID", "Status", "Error Type", "Remarks"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px",
-                        borderBottom: "2px solid #e5e7eb",
-                        position: "sticky",
-                        top: 0,
-                        background: "#f9fafb",
-                        zIndex: 1,
-                      }}
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+              <tr>
+                <th>Timestamp</th>
+                <th>Run ID</th>
+                <th>Status</th>
+                <th>Error Type</th>
+                <th>Remarks</th>
               </tr>
             </thead>
-
             <tbody>
-              {data.rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan="5"
-                    style={{
-                      textAlign: "center",
-                      padding: "24px",
-                      color: "#6b7280",
-                    }}
-                  >
-                    No audit records found
-                  </td>
-                </tr>
-              )}
-
-              {data.rows.map((row, index) => (
-                <tr
-                  key={index}
-                  style={{
-                    borderBottom: "1px solid #e5e7eb",
-                  }}
-                >
-                  <td style={{ padding: "10px" }}>{row.timestamp}</td>
-                  <td style={{ padding: "10px", fontWeight: 500 }}>
-                    {row.run_id || "-"}
-                  </td>
-                  <td style={{ padding: "10px" }}>
-                    <span
-                      style={{
-                        padding: "4px 8px",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        ...badgeStyle(row.status),
-                      }}
-                    >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px" }}>
-                    {row.error_type || "-"}
-                  </td>
-                  <td style={{ padding: "10px" }}>
-                    {row.remarks || "-"}
-                  </td>
+              {sortedRows.map((row, idx) => (
+                <tr key={idx}>
+                  <td className="mono">{row.timestamp ?? "-"}</td>
+                  <td className="mono">{row.run_id ?? "-"}</td>
+                  <td>{statusBadge(row.status)}</td>
+                  <td>{row.error_type ?? "-"}</td>
+                  <td>{row.remarks ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* UI-only styles */}
+      <style>{`
+        .safe-mode {
+          color: #666;
+          font-size: 14px;
+          margin-bottom: 16px;
+        }
+
+        .error {
+          color: red;
+        }
+
+        .table-wrap {
+          overflow-x: auto;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        thead th {
+          position: sticky;
+          top: 0;
+          background: #fafafa;
+          border-bottom: 2px solid #ddd;
+          padding: 10px;
+          text-align: left;
+        }
+
+        tbody td {
+          padding: 10px;
+          border-bottom: 1px solid #eee;
+        }
+
+        tbody tr:hover {
+          background: #f9f9f9;
+        }
+
+        .mono {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 13px;
+        }
+
+        .badge {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 600;
+          display: inline-block;
+        }
+
+        .badge.success {
+          background: #e6f9f0;
+          color: #0a7a4a;
+        }
+
+        .badge.neutral {
+          background: #f1f1f1;
+          color: #555;
+        }
+      `}</style>
     </div>
   );
 }
