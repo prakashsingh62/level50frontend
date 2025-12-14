@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAuditReport } from "../api";
-
-const PAGE_SIZE = 10;
 
 export default function AuditPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
+
+  // sorting state
+  const [sortKey, setSortKey] = useState("timestamp");
+  const [sortDir, setSortDir] = useState("desc"); // newest first
 
   useEffect(() => {
     getAuditReport()
@@ -14,11 +15,27 @@ export default function AuditPage() {
       .catch((err) => setError(err.message));
   }, []);
 
-  const rows = data?.rows || [];
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
-  const startIndex = (page - 1) * PAGE_SIZE;
-  const pagedRows = rows.slice(startIndex, startIndex + PAGE_SIZE);
+  const sortedRows = useMemo(() => {
+    if (!data?.rows) return [];
+
+    return [...data.rows].sort((a, b) => {
+      const aVal = a[sortKey] ?? "";
+      const bVal = b[sortKey] ?? "";
+
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortKey, sortDir]);
 
   return (
     <div style={{ padding: "20px" }}>
@@ -32,76 +49,58 @@ export default function AuditPage() {
       {!data && !error && <p>Loading audit data…</p>}
 
       {data && (
-        <>
-          <table
-            border="1"
-            cellPadding="8"
-            cellSpacing="0"
-            style={{
-              marginTop: "16px",
-              width: "100%",
-              borderCollapse: "collapse",
-            }}
-          >
-            <thead>
+        <table
+          border="1"
+          cellPadding="8"
+          cellSpacing="0"
+          style={{
+            marginTop: "16px",
+            width: "100%",
+            borderCollapse: "collapse",
+          }}
+        >
+          <thead>
+            <tr>
+              <SortableTH label="Timestamp" onClick={() => toggleSort("timestamp")} />
+              <SortableTH label="Run ID" onClick={() => toggleSort("run_id")} />
+              <SortableTH label="Status" onClick={() => toggleSort("status")} />
+              <SortableTH label="Error Type" onClick={() => toggleSort("error_type")} />
+              <SortableTH label="Remarks" onClick={() => toggleSort("remarks")} />
+            </tr>
+          </thead>
+
+          <tbody>
+            {sortedRows.length === 0 && (
               <tr>
-                <th>Timestamp</th>
-                <th>Run ID</th>
-                <th>Status</th>
-                <th>Error Type</th>
-                <th>Remarks</th>
+                <td colSpan="5" style={{ textAlign: "center", color: "#777" }}>
+                  No audit records found
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {pagedRows.length === 0 && (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: "center", color: "#777" }}>
-                    No audit records found
-                  </td>
-                </tr>
-              )}
+            )}
 
-              {pagedRows.map((row, index) => (
-                <tr key={startIndex + index}>
-                  <td>{row.timestamp}</td>
-                  <td>{row.run_id || "-"}</td>
-                  <td>{row.status || "-"}</td>
-                  <td>{row.error_type || "-"}</td>
-                  <td>{row.remarks || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination Controls */}
-          <div
-            style={{
-              marginTop: "16px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              ◀ Prev
-            </button>
-
-            <span style={{ fontSize: "14px" }}>
-              Page {page} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Next ▶
-            </button>
-          </div>
-        </>
+            {sortedRows.map((row, index) => (
+              <tr key={index}>
+                <td>{row.timestamp}</td>
+                <td>{row.run_id || "-"}</td>
+                <td>{row.status}</td>
+                <td>{row.error_type || "-"}</td>
+                <td>{row.remarks || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
+  );
+}
+
+function SortableTH({ label, onClick }) {
+  return (
+    <th
+      onClick={onClick}
+      style={{ cursor: "pointer", userSelect: "none" }}
+    >
+      {label} ⬍
+    </th>
   );
 }
