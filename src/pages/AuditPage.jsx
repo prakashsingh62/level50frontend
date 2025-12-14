@@ -8,23 +8,15 @@ export default function AuditPage() {
   useEffect(() => {
     fetchAuditReport()
       .then(setData)
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to load audit logs");
-      });
+      .catch(() => setError("Failed to load audit logs"));
   }, []);
 
-  if (error) {
-    return <div>{error}</div>;
-  }
-
-  if (!data) {
-    return <div>Loading audit logs...</div>;
-  }
+  if (error) return <div>{error}</div>;
+  if (!data) return <div>Loading audit logs...</div>;
 
   return (
     <div>
-      <h1>Audit Report</h1>
+      <h2>Audit Report</h2>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
