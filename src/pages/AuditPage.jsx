@@ -27,11 +27,7 @@ export default function AuditPage() {
           border="1"
           cellPadding="8"
           cellSpacing="0"
-          style={{
-            marginTop: "16px",
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
+          style={{ marginTop: "16px", width: "100%", borderCollapse: "collapse" }}
         >
           <thead>
             <tr>
