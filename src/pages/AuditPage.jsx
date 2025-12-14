@@ -3,85 +3,62 @@ import { getAuditReport } from "../api";
 
 export default function AuditPage() {
   const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    let alive = true;
-
-    async function load() {
-      try {
-        const res = await getAuditReport();
-        if (!alive) return;
-        setData(res || null);
-      } catch (e) {
-        if (!alive) return;
-        setError(e?.message || "Failed to load audit data");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      alive = false;
-    };
+    getAuditReport()
+      .then((res) => {
+        setData(res);
+      })
+      .catch((err) => {
+        setError("Failed to load audit report");
+        console.error(err);
+      });
   }, []);
 
-  // SAFE GUARDS
-  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  if (error) {
+    return <div style={{ padding: 20 }}>{error}</div>;
+  }
+
+  if (!data) {
+    return <div style={{ padding: 20 }}>Loading audit report…</div>;
+  }
+
+  const rows = Array.isArray(data.rows) ? data.rows : [];
 
   return (
-    <div style={{ padding: "16px", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ padding: 20 }}>
       <h2>Audit Report</h2>
-      <p style={{ color: "#666", marginTop: 0 }}>
-        Safe mode • Read-only table
-      </p>
+      <p>Total records: {data.count}</p>
 
-      {loading && <p>Loading…</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {!loading && !error && (
-        <>
-          <p>
-            Total records: <strong>{rows.length}</strong>
-          </p>
-
+      <table border="1" cellPadding="6" cellSpacing="0">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Run ID</th>
+            <th>Status</th>
+            <th>Error Type</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
           {rows.length === 0 ? (
-            <p>No audit records found.</p>
+            <tr>
+              <td colSpan="5">No audit data</td>
+            </tr>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table
-                border="1"
-                cellPadding="6"
-                cellSpacing="0"
-                style={{ borderCollapse: "collapse", width: "100%" }}
-              >
-                <thead style={{ background: "#f5f5f5" }}>
-                  <tr>
-                    <th>Timestamp</th>
-                    <th>Run ID</th>
-                    <th>Status</th>
-                    <th>Error Type</th>
-                    <th>Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i}>
-                      <td>{r?.timestamp ?? "-"}</td>
-                      <td>{r?.run_id ?? "-"}</td>
-                      <td>{r?.status ?? "-"}</td>
-                      <td>{r?.error_type ?? "-"}</td>
-                      <td>{r?.remarks ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            rows.map((row, idx) => (
+              <tr key={idx}>
+                <td>{row.timestamp || "-"}</td>
+                <td>{row.run_id || "-"}</td>
+                <td>{row.status || "-"}</td>
+                <td>{row.error_type || "-"}</td>
+                <td>{row.remarks || "-"}</td>
+              </tr>
+            ))
           )}
-        </>
-      )}
+        </tbody>
+      </table>
     </div>
   );
 }
