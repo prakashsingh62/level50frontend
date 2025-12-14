@@ -1,5 +1,8 @@
-import AuditApp from "../../../audit-report-ui/src/App";
-
 export default function AuditPage() {
-  return <AuditApp />;
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Audit Report</h2>
+      <p>Audit UI integrated later.</p>
+    </div>
+  );
 }
