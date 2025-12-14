@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAuditReport } from "../api";
+import { getAuditReport } from "../api.js";
 
 export default function AuditPage() {
   const [data, setData] = useState([]);
