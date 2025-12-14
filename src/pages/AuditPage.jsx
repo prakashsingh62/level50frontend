@@ -20,7 +20,6 @@ export default function AuditPage() {
       </p>
 
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
-
       {!data && !error && <p>Loading audit data…</p>}
 
       {data && (
@@ -28,11 +27,7 @@ export default function AuditPage() {
           border="1"
           cellPadding="8"
           cellSpacing="0"
-          style={{
-            marginTop: "16px",
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
+          style={{ marginTop: "16px", width: "100%", borderCollapse: "collapse" }}
         >
           <thead>
             <tr>
