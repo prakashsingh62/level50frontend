@@ -20,7 +20,6 @@ export default function AuditPage() {
       </p>
 
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
-
       {!data && !error && <p>Loading audit data…</p>}
 
       {data && (
@@ -28,7 +27,11 @@ export default function AuditPage() {
           border="1"
           cellPadding="8"
           cellSpacing="0"
-          style={{ marginTop: "16px", width: "100%", borderCollapse: "collapse" }}
+          style={{
+            marginTop: "16px",
+            width: "100%",
+            borderCollapse: "collapse",
+          }}
         >
           <thead>
             <tr>
@@ -39,8 +42,25 @@ export default function AuditPage() {
               <th>Remarks</th>
             </tr>
           </thead>
+
           <tbody>
-            {/* rows will be wired in next step */}
+            {data.rows.length === 0 && (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center", color: "#777" }}>
+                  No audit records found
+                </td>
+              </tr>
+            )}
+
+            {data.rows.map((row, index) => (
+              <tr key={index}>
+                <td>{row.timestamp}</td>
+                <td>{row.run_id}</td>
+                <td>{row.status}</td>
+                <td>{row.error_type || "-"}</td>
+                <td>{row.remarks || "-"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
