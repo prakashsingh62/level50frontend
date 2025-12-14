@@ -16,7 +16,7 @@ export default function AuditPage() {
       <h1>Audit Report</h1>
 
       <p style={{ color: "#666", fontSize: "14px" }}>
-        Safe Mode — Read only. Table UI (Phase-2).
+        Safe Mode — Read only. Table UI in progress.
       </p>
 
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
