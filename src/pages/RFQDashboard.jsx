@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { getAuditReport } from "../api/audit.js";
 import { exportCsv } from "../api/exportCsv.js";
 
+const PAGE_SIZE = 25;
+
 export default function RFQDashboard() {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     getAuditReport()
       .then((res) => {
-        // ✅ FIX: handle both [] and { rows: [] }
         const data = Array.isArray(res) ? res : res?.rows || [];
         setRows(data);
         setLoading(false);
@@ -23,6 +25,7 @@ export default function RFQDashboard() {
       });
   }, []);
 
+  // 🔍 Search filter
   const filtered = useMemo(() => {
     const query = q.toLowerCase();
     return rows.filter((r) =>
@@ -32,14 +35,29 @@ export default function RFQDashboard() {
     );
   }, [rows, q]);
 
+  // 📄 Pagination math
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, safePage]);
+
+  // 📊 KPIs (always from full filtered set)
   const stats = useMemo(() => {
-    const total = rows.length;
-    const ok = rows.filter((r) => r.remarks === "OK").length;
-    const errors = rows.filter(
+    const total = filtered.length;
+    const ok = filtered.filter((r) => r.remarks === "OK").length;
+    const errors = filtered.filter(
       (r) => r.error_type && r.error_type !== "" && r.error_type !== "SYSTEM"
     ).length;
     return { total, ok, errors };
-  }, [rows]);
+  }, [filtered]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
 
   return (
     <div
@@ -50,14 +68,14 @@ export default function RFQDashboard() {
         gap: 16,
       }}
     >
-      {/* LEFT PANEL */}
+      {/* LEFT */}
       <div>
         <h2>Phase-14 Audit Dashboard</h2>
         <p style={{ color: "#555" }}>
           Level-80 automation is active (read-only)
         </p>
 
-        {/* KPI TILES */}
+        {/* KPIs */}
         <div
           style={{
             display: "grid",
@@ -71,7 +89,7 @@ export default function RFQDashboard() {
           <Kpi label="Errors" value={stats.errors} />
         </div>
 
-        {/* SEARCH + EXPORT */}
+        {/* Search + Export */}
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input
             placeholder="Search anything…"
@@ -87,51 +105,81 @@ export default function RFQDashboard() {
           </button>
         </div>
 
-        {/* TABLE */}
+        {/* Table */}
         {loading && <div>Loading…</div>}
         {error && <div style={{ color: "red" }}>{error}</div>}
 
         {!loading && !error && (
-          <table
-            width="100%"
-            border="1"
-            cellPadding="6"
-            style={{ borderCollapse: "collapse" }}
-          >
-            <thead style={{ background: "#f5f5f5" }}>
-              <tr>
-                <th>Timestamp</th>
-                <th>Run</th>
-                <th>Status</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => (
-                <tr
-                  key={i}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => setSelected(r)}
-                >
-                  <td>{r.timestamp}</td>
-                  <td>{r.run_id}</td>
-                  <td>{r.status}</td>
-                  <td>{r.remarks}</td>
-                </tr>
-              ))}
-              {!filtered.length && (
+          <>
+            <table
+              width="100%"
+              border="1"
+              cellPadding="6"
+              style={{ borderCollapse: "collapse" }}
+            >
+              <thead style={{ background: "#f5f5f5" }}>
                 <tr>
-                  <td colSpan="4" style={{ textAlign: "center" }}>
-                    No data
-                  </td>
+                  <th>Timestamp</th>
+                  <th>Run</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pagedRows.map((r, i) => (
+                  <tr
+                    key={i}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelected(r)}
+                  >
+                    <td>{r.timestamp}</td>
+                    <td>{r.run_id}</td>
+                    <td>{r.status}</td>
+                    <td>{r.remarks}</td>
+                  </tr>
+                ))}
+                {!pagedRows.length && (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: "center" }}>
+                      No data
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {/* Pagination controls */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 8,
+              }}
+            >
+              <div>
+                Page {safePage} of {totalPages}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                >
+                  Prev
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* RIGHT INSPECTOR */}
+      {/* RIGHT */}
       <div style={{ border: "1px solid #ddd", padding: 8 }}>
         <h3>Inspector</h3>
         {!selected && <div>Select a row</div>}
