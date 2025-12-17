@@ -1,203 +1,290 @@
-import { useEffect, useMemo, useState } from "react";
-import { getAuditReport } from "../api/audit.js";
-import { exportCsv } from "../api/exportCsv.js";
-
-const PAGE_SIZE = 25;
+import { useEffect, useState } from "react";
+import { getAuditReport } from "../api/audit";
+import { exportCsv } from "../api/exportCsv";
 
 export default function RFQDashboard() {
   const [rows, setRows] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    getAuditReport()
-      .then((res) => {
-        const data = Array.isArray(res) ? res : res?.rows || [];
-        setRows(data);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message || "Failed to load audit data");
-        setLoading(false);
+  const fetchData = async (pageNo) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await getAuditReport({
+        page: pageNo,
+        limit
       });
-  }, []);
 
-  // 🔍 Search filter
-  const filtered = useMemo(() => {
-    const query = q.toLowerCase();
-    return rows.filter((r) =>
-      Object.values(r).some((v) =>
-        String(v ?? "").toLowerCase().includes(query)
-      )
-    );
-  }, [rows, q]);
+      setRows(res.rows || []);
+      setPage(res.page || 1);
+      setTotal(res.total || 0);
+      setTotalPages(res.total_pages || 1);
+    } catch (e) {
+      setError(e.message || "Failed to load audit data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // 📄 Pagination math
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-
-  const pagedRows = useMemo(() => {
-    const start = (safePage - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, safePage]);
-
-  // 📊 KPIs (always from full filtered set)
-  const stats = useMemo(() => {
-    const total = filtered.length;
-    const ok = filtered.filter((r) => r.remarks === "OK").length;
-    const errors = filtered.filter(
-      (r) => r.error_type && r.error_type !== "" && r.error_type !== "SYSTEM"
-    ).length;
-    return { total, ok, errors };
-  }, [filtered]);
-
-  // Reset to page 1 when search changes
   useEffect(() => {
-    setPage(1);
-  }, [q]);
+    fetchData(page);
+    // eslint-disable-next-line
+  }, [page]);
 
+  const okCount = rows.filter(
+    r => r.remarks === "OK" || r.status === "0"
+  ).length;
+
+  const errorCount = rows.length - okCount;
+
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+
+  return (
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <h2 style={{ marginBottom: 4 }}>Audit Dashboard</h2>
+      <p style={{ color: "#666", marginBottom: 20 }}>
+        Level-80 automation · Read-only
+      </p>
+
+      {/* KPI CARDS */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+        <KPI label="Total Runs" value={total} />
+        <KPI label="OK" value={okCount} color="green" />
+        <KPI label="Errors" value={errorCount} color="red" />
+      </div>
+
+      {/* ACTION BAR */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 10
+        }}
+      >
+        <div style={{ color: "#666", fontSize: 13 }}>
+          Showing {from}–{to} of {total}
+        </div>
+
+        <button
+          onClick={() => exportCsv(rows)}
+          style={btnStyle}
+        >
+          Export CSV
+        </button>
+      </div>
+
+      {/* TABLE + INSPECTOR */}
+      <div style={{ display: "flex", gap: 20 }}>
+        {/* TABLE */}
+        <div style={{ width: "70%", overflowX: "auto" }}>
+          <table
+            width="100%"
+            cellPadding="10"
+            cellSpacing="0"
+            style={{
+              borderCollapse: "collapse",
+              border: "1px solid #ddd"
+            }}
+          >
+            <thead style={{ position: "sticky", top: 0, background: "#f7f7f7" }}>
+              <tr>
+                <Th>Timestamp</Th>
+                <Th>Run</Th>
+                <Th>Status</Th>
+                <Th>Remarks</Th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && (
+                <tr>
+                  <Td colSpan="4" center>
+                    Loading…
+                  </Td>
+                </tr>
+              )}
+
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <Td colSpan="4" center>
+                    No audit records found
+                  </Td>
+                </tr>
+              )}
+
+              {!loading &&
+                rows.map((row, i) => (
+                  <tr
+                    key={i}
+                    onClick={() => setSelectedRow(row)}
+                    style={{
+                      background:
+                        selectedRow === row ? "#eef5ff" : i % 2 ? "#fafafa" : "#fff",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <Td>{row.timestamp}</Td>
+                    <Td>{row.run_id}</Td>
+                    <Td>
+                      <StatusBadge
+                        ok={row.remarks === "OK" || row.status === "0"}
+                      />
+                    </Td>
+                    <Td>{row.remarks}</Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* INSPECTOR */}
+        <div
+          style={{
+            width: "30%",
+            border: "1px solid #ddd",
+            borderRadius: 4,
+            padding: 12
+          }}
+        >
+          <h4 style={{ marginTop: 0 }}>Inspector</h4>
+          {selectedRow ? (
+            <div style={{ fontSize: 13 }}>
+              {Object.entries(selectedRow).map(([k, v]) => (
+                <div key={k} style={{ marginBottom: 6 }}>
+                  <b>{k}</b>
+                  <div style={{ color: "#444" }}>{String(v)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "#666" }}>Select a row to inspect</p>
+          )}
+        </div>
+      </div>
+
+      {/* PAGINATION */}
+      <div
+        style={{
+          marginTop: 16,
+          display: "flex",
+          gap: 8,
+          justifyContent: "flex-end"
+        }}
+      >
+        <button
+          style={btnStyle}
+          disabled={page <= 1}
+          onClick={() => setPage(p => p - 1)}
+        >
+          ◀ Prev
+        </button>
+
+        <button
+          style={btnStyle}
+          disabled={page >= totalPages}
+          onClick={() => setPage(p => p + 1)}
+        >
+          Next ▶
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ color: "red", marginTop: 12 }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* UI PARTS */
+
+function KPI({ label, value, color }) {
   return (
     <div
       style={{
-        padding: 16,
-        display: "grid",
-        gridTemplateColumns: "3fr 1fr",
-        gap: 16,
+        border: "1px solid #ddd",
+        borderRadius: 6,
+        padding: 14,
+        minWidth: 140
       }}
     >
-      {/* LEFT */}
-      <div>
-        <h2>Phase-14 Audit Dashboard</h2>
-        <p style={{ color: "#555" }}>
-          Level-80 automation is active (read-only)
-        </p>
-
-        {/* KPIs */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 8,
-            margin: "12px 0",
-          }}
-        >
-          <Kpi label="Total Runs" value={stats.total} />
-          <Kpi label="OK" value={stats.ok} />
-          <Kpi label="Errors" value={stats.errors} />
-        </div>
-
-        {/* Search + Export */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input
-            placeholder="Search anything…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ flex: 1, padding: 6 }}
-          />
-          <button
-            onClick={() => exportCsv(filtered)}
-            disabled={!filtered.length}
-          >
-            Export CSV
-          </button>
-        </div>
-
-        {/* Table */}
-        {loading && <div>Loading…</div>}
-        {error && <div style={{ color: "red" }}>{error}</div>}
-
-        {!loading && !error && (
-          <>
-            <table
-              width="100%"
-              border="1"
-              cellPadding="6"
-              style={{ borderCollapse: "collapse" }}
-            >
-              <thead style={{ background: "#f5f5f5" }}>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Run</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedRows.map((r, i) => (
-                  <tr
-                    key={i}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelected(r)}
-                  >
-                    <td>{r.timestamp}</td>
-                    <td>{r.run_id}</td>
-                    <td>{r.status}</td>
-                    <td>{r.remarks}</td>
-                  </tr>
-                ))}
-                {!pagedRows.length && (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: "center" }}>
-                      No data
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            {/* Pagination controls */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 8,
-              }}
-            >
-              <div>
-                Page {safePage} of {totalPages}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
-                >
-                  Prev
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* RIGHT */}
-      <div style={{ border: "1px solid #ddd", padding: 8 }}>
-        <h3>Inspector</h3>
-        {!selected && <div>Select a row</div>}
-        {selected && (
-          <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
-            {JSON.stringify(selected, null, 2)}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Kpi({ label, value }) {
-  return (
-    <div style={{ border: "1px solid #ddd", padding: 8 }}>
       <div style={{ fontSize: 12, color: "#666" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: "bold" }}>{value}</div>
+      <div
+        style={{
+          fontSize: 24,
+          fontWeight: "bold",
+          color: color || "#111"
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
+
+function StatusBadge({ ok }) {
+  return (
+    <span
+      style={{
+        padding: "4px 10px",
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: 600,
+        background: ok ? "#e6f4ea" : "#fdecea",
+        color: ok ? "#137333" : "#a50e0e"
+      }}
+    >
+      {ok ? "OK" : "ERROR"}
+    </span>
+  );
+}
+
+function Th({ children }) {
+  return (
+    <th
+      style={{
+        textAlign: "left",
+        padding: 10,
+        borderBottom: "1px solid #ddd",
+        fontSize: 13
+      }}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, colSpan, center }) {
+  return (
+    <td
+      colSpan={colSpan}
+      style={{
+        padding: 10,
+        borderBottom: "1px solid #eee",
+        textAlign: center ? "center" : "left",
+        color: "#333",
+        fontSize: 13
+      }}
+    >
+      {children}
+    </td>
+  );
+}
+
+const btnStyle = {
+  padding: "6px 12px",
+  border: "1px solid #ccc",
+  borderRadius: 4,
+  background: "#fff",
+  cursor: "pointer"
+};
