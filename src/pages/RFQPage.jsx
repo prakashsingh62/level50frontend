@@ -1,124 +1,129 @@
 import { useState } from "react";
 import useRFQs from "../hooks/useRFQs";
 
+const STATUS_COLORS = {
+  "VENDOR PENDING": "bg-yellow-100 text-yellow-800",
+  "QUOTATION RECEIVED": "bg-green-100 text-green-800",
+  "CLARIFICATION": "bg-purple-100 text-purple-800",
+  "OFFER SUBMITTED": "bg-blue-100 text-blue-800",
+  "POST-OFFER QUERY": "bg-orange-100 text-orange-800",
+  "CLOSED": "bg-gray-200 text-gray-800",
+  "UNKNOWN": "bg-red-100 text-red-800",
+};
+
 export default function RFQPage() {
   const [status, setStatus] = useState("");
-  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
 
-  const {
-    rows,
-    summary,
-    meta,
-    loading,
-    error,
-  } = useRFQs({
-    status,
-    page,
-    pageSize: 50,
+  const { rows, summary, loading, error } = useRFQs({
     lastNDays: 10000,
+    status,
   });
 
-  // Build table headers dynamically (future-proof)
-  const headers = rows && rows.length ? Object.keys(rows[0]) : [];
+  const statuses = Object.entries(summary || {});
+
+  const handleSelect = (value) => {
+    setStatus(value);
+    setOpen(false); // ✅ auto-close dropdown
+  };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2 style={{ marginBottom: 12 }}>RFQ Dashboard</h2>
+    <div className="p-4">
+      <h1 className="text-xl font-semibold mb-3">RFQ Dashboard</h1>
 
-      {/* FILTER BAR */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
+      {/* STATUS DROPDOWN */}
+      <div className="relative inline-block mb-3">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="border px-3 py-1 rounded bg-white"
         >
-          <option value="">ALL STATUS</option>
-          {Object.keys(summary || {}).map((s) => (
-            <option key={s} value={s}>
-              {s} ({summary[s]})
-            </option>
-          ))}
-        </select>
+          {status || "ALL STATUS"} ▾
+        </button>
+
+        {open && (
+          <div className="absolute z-10 bg-white border rounded shadow mt-1 w-60">
+            <div
+              onClick={() => handleSelect("")}
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+            >
+              ALL STATUS
+            </div>
+
+            {statuses.map(([key, count]) => (
+              <div
+                key={key}
+                onClick={() => handleSelect(key)}
+                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex justify-between"
+              >
+                <span>{key}</span>
+                <span className="text-sm text-gray-500">({count})</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* STATES */}
-      {loading && <div>Loading RFQs…</div>}
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      {loading && <div className="mt-6 text-gray-500">Loading RFQs…</div>}
+      {error && <div className="mt-6 text-red-600">{error}</div>}
 
-      {/* TABLE */}
-      {!loading && !error && (
-        <div style={{ overflow: "auto", border: "1px solid #ccc" }}>
-          <table
-            style={{
-              borderCollapse: "collapse",
-              minWidth: "100%",
-              fontSize: 13,
-            }}
-          >
-            <thead style={{ background: "#f3f3f3", position: "sticky", top: 0 }}>
-              <tr>
-                {headers.map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      border: "1px solid #ccc",
-                      padding: "6px 8px",
-                      textAlign: "left",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx}>
-                  {headers.map((h) => (
-                    <td
-                      key={h}
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "6px 8px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {row[h] ?? ""}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* EMPTY STATE */}
+      {!loading && rows.length === 0 && (
+        <div className="mt-10 text-center text-gray-500">
+          No RFQs found for this status.
         </div>
       )}
 
-      {/* PAGINATION */}
-      {!loading && meta?.total > 0 && (
-        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-          >
-            Prev
-          </button>
-          <span>
-            Page {meta.page} /{" "}
-            {Math.ceil(meta.total / meta.page_size || 1)}
-          </span>
-          <button
-            onClick={() =>
-              setPage((p) =>
-                p * meta.page_size < meta.total ? p + 1 : p
-              )
-            }
-            disabled={page * meta.page_size >= meta.total}
-          >
-            Next
-          </button>
+      {/* TABLE */}
+      {rows.length > 0 && (
+        <div className="overflow-auto border rounded max-h-[70vh]">
+          <table className="min-w-full border-collapse">
+            <thead className="sticky top-0 bg-gray-100 z-20">
+              <tr>
+                <th className="sticky left-0 bg-gray-100 z-30 border px-2 py-1">
+                  SR.NO
+                </th>
+                <th className="sticky left-[60px] bg-gray-100 z-30 border px-2 py-1">
+                  CUSTOMER NAME
+                </th>
+                <th className="border px-2 py-1">LOCATION</th>
+                <th className="border px-2 py-1">RFQ NO</th>
+                <th className="border px-2 py-1">RFQ DATE</th>
+                <th className="border px-2 py-1">PRODUCT</th>
+                <th className="border px-2 py-1">STATUS</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {rows.map((row, i) => {
+                const statusText = row["FINAL STATUS"] || "UNKNOWN";
+                const badge =
+                  STATUS_COLORS[statusText] || STATUS_COLORS.UNKNOWN;
+
+                return (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="sticky left-0 bg-white z-10 border px-2 py-1">
+                      {row["SR.NO"]}
+                    </td>
+                    <td className="sticky left-[60px] bg-white z-10 border px-2 py-1">
+                      {row["CUSTOMER NAME"]}
+                    </td>
+                    <td className="border px-2 py-1">{row.LOCATION}</td>
+                    <td className="border px-2 py-1">{row["RFQ NO"]}</td>
+                    <td className="border px-2 py-1">{row["RFQ DATE"]}</td>
+                    <td className="border px-2 py-1">{row.PRODUCT}</td>
+                    <td className="border px-2 py-1">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${badge}`}
+                      >
+                        {statusText}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
