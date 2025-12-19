@@ -150,7 +150,7 @@ export default function RFQPage() {
                 <td style={cell}>{r["RFQ NO"]}</td>
                 <td style={cell}>{r["RFQ DATE"]}</td>
                 <td style={cell}>{r["UID NO"]}</td>
-                <td style={cell}>{getProduct(r)}</td>
+                <td style={cell}>{Object.entries(r).find(([k]) => k.trim().toUpperCase() === "PRODUCT")?.[1] || ""}</td>
                 <td style={cell}>
                   <span style={statusStyle(r["FINAL STATUS"])}>
                     {r["FINAL STATUS"]}
