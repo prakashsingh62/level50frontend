@@ -3,24 +3,23 @@ const API_BASE =
   "https://level50-backend-final-production-012c.up.railway.app";
 
 export async function fetchRFQs({
-  last_n_days = 10000,
   status = "",
-  search = "",
   page = 1,
   page_size = 50,
-}) {
-  const params = new URLSearchParams({
-    last_n_days,
-    page,
-    page_size,
-  });
+  last_n_days = 10000,
+} = {}) {
+  const params = new URLSearchParams();
 
   if (status) params.append("status", status);
-  if (search) params.append("search", search);
+  params.append("page", page);
+  params.append("page_size", page_size);
+  params.append("last_n_days", last_n_days);
 
   const res = await fetch(`${API_BASE}/rfqs/filter?${params.toString()}`);
+
   if (!res.ok) {
-    throw new Error("Failed to fetch RFQs");
+    throw new Error(`RFQ fetch failed: ${res.status}`);
   }
+
   return res.json();
 }
