@@ -1,6 +1,8 @@
 import { useState } from "react";
 import useRFQs from "../hooks/useRFQs";
 
+/* ================== STYLES ================== */
+
 const th = {
   position: "sticky",
   top: 0,
@@ -48,8 +50,29 @@ const statusStyle = (s) => {
     borderRadius: 6,
     fontSize: 12,
     fontWeight: 600,
+    display: "inline-block",
   };
 };
+
+/* ================== SAFE PRODUCT RESOLVER ================== */
+/* Backend column naam kuch bhi ho, product miss nahi hoga */
+
+function getProduct(r) {
+  return (
+    r["PRODUCT"] ||
+    r["Product"] ||
+    r["product"] ||
+    r["ITEM"] ||
+    r["ITEM NAME"] ||
+    r["ITEM DESCRIPTION"] ||
+    r["PRODUCT NAME"] ||
+    r["PRODUCT_DESC"] ||
+    r["PRODUCT DESCRIPTION"] ||
+    ""
+  );
+}
+
+/* ================== COMPONENT ================== */
 
 export default function RFQPage() {
   const [status, setStatus] = useState("");
@@ -127,7 +150,7 @@ export default function RFQPage() {
                 <td style={cell}>{r["RFQ NO"]}</td>
                 <td style={cell}>{r["RFQ DATE"]}</td>
                 <td style={cell}>{r["UID NO"]}</td>
-                <td style={cell}>{r["PRODUCT"] ?? r["PRODUCT NAME"] ?? r["PRODUCT_DESC"] ?? r["PRODUCT DESCRIPTION"] ?? ""}</td>
+                <td style={cell}>{getProduct(r)}</td>
                 <td style={cell}>
                   <span style={statusStyle(r["FINAL STATUS"])}>
                     {r["FINAL STATUS"]}
