@@ -1,41 +1,80 @@
 import { useState } from "react";
 import useRFQs from "../hooks/useRFQs";
 
-const STATUS_COLORS = {
-  "VENDOR PENDING": "bg-orange-100 text-orange-800",
-  "QUOTATION RECEIVED": "bg-green-100 text-green-800",
-  "CLARIFICATION": "bg-yellow-100 text-yellow-800",
-  "OFFER SUBMITTED": "bg-blue-100 text-blue-800",
-  "POST-OFFER QUERY": "bg-purple-100 text-purple-800",
-  "CLOSED": "bg-gray-200 text-gray-800",
-  "UNKNOWN": "bg-red-100 text-red-800",
+const th = {
+  position: "sticky",
+  top: 0,
+  background: "#f5f5f5",
+  zIndex: 2,
+  border: "1px solid #ddd",
+  padding: "8px",
+  whiteSpace: "nowrap",
+};
+
+const stickyLeft = {
+  position: "sticky",
+  left: 0,
+  background: "#fff",
+  zIndex: 3,
+};
+
+const stickyLeft2 = {
+  position: "sticky",
+  left: 80,
+  background: "#fff",
+  zIndex: 3,
+};
+
+const cell = {
+  border: "1px solid #eee",
+  padding: "6px 8px",
+  whiteSpace: "nowrap",
+};
+
+const statusStyle = (s) => {
+  const map = {
+    "VENDOR PENDING": { bg: "#fdecea", color: "#b71c1c" },
+    "QUOTATION RECEIVED": { bg: "#e3f2fd", color: "#0d47a1" },
+    "OFFER SUBMITTED": { bg: "#e8f5e9", color: "#1b5e20" },
+    "POST-OFFER QUERY": { bg: "#fff3e0", color: "#e65100" },
+    "CLOSED": { bg: "#eceff1", color: "#263238" },
+    "UNKNOWN": { bg: "#f3e5f5", color: "#4a148c" },
+  };
+  const m = map[s] || { bg: "#eeeeee", color: "#333" };
+  return {
+    background: m.bg,
+    color: m.color,
+    padding: "4px 8px",
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 600,
+  };
 };
 
 export default function RFQPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
 
-  const { rows, summary, meta, loading } = useRFQs({
-    lastNDays: 10000,
+  const { rows, meta, summary, loading } = useRFQs({
     status,
     page,
     pageSize: 50,
   });
 
-  const totalPages = Math.ceil((meta.total || 0) / (meta.page_size || 50));
+  const totalPages = Math.ceil((meta?.total || 0) / 50);
 
   return (
     <div style={{ padding: 16 }}>
       <h2>RFQ Dashboard</h2>
 
-      {/* STATUS DROPDOWN */}
+      {/* STATUS FILTER */}
       <select
         value={status}
         onChange={(e) => {
           setStatus(e.target.value);
           setPage(1);
         }}
-        style={{ marginBottom: 12 }}
+        style={{ padding: 6, marginBottom: 10 }}
       >
         <option value="">ALL STATUS</option>
         {Object.entries(summary || {}).map(([k, v]) => (
@@ -45,98 +84,53 @@ export default function RFQPage() {
         ))}
       </select>
 
-      {/* EMPTY STATE */}
-      {!loading && rows.length === 0 && (
-        <div style={{ padding: 20, color: "#777" }}>
-          No RFQs in this status
-        </div>
-      )}
-
       {/* TABLE */}
       <div style={{ overflow: "auto", maxHeight: "70vh" }}>
         <table
           style={{
             borderCollapse: "collapse",
-            minWidth: 1200,
             width: "100%",
+            minWidth: 1400,
           }}
         >
           <thead>
             <tr>
-              {[
-                "SR.NO",
-                "CUSTOMER NAME",
-                "LOCATION",
-                "RFQ NO",
-                "RFQ DATE",
-                "PRODUCT",
-                "STATUS",
-              ].map((h, i) => (
-                <th
-                  key={h}
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    left: i === 0 ? 0 : i === 1 ? 80 : undefined,
-                    background: "#f5f5f5",
-                    zIndex: 3,
-                    border: "1px solid #ddd",
-                    padding: 8,
-                    minWidth: i === 1 ? 220 : 120,
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
+              <th style={{ ...th, ...stickyLeft, width: 80 }}>SR.NO</th>
+              <th style={{ ...th, ...stickyLeft2, width: 260 }}>
+                CUSTOMER NAME
+              </th>
+              <th style={th}>LOCATION</th>
+              <th style={th}>RFQ NO</th>
+              <th style={th}>RFQ DATE</th>
+              <th style={th}>UID NO</th>
+              <th style={th}>PRODUCT</th>
+              <th style={th}>STATUS</th>
             </tr>
           </thead>
 
           <tbody>
-            {rows.map((r, idx) => (
-              <tr key={idx}>
-                {/* SR.NO */}
-                <td
-                  style={{
-                    position: "sticky",
-                    left: 0,
-                    background: "#fff",
-                    border: "1px solid #eee",
-                    padding: 6,
-                    zIndex: 2,
-                  }}
-                >
-                  {r["SR.NO"]}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: 20, textAlign: "center" }}>
+                  No RFQs in this status
                 </td>
+              </tr>
+            )}
 
-                {/* CUSTOMER NAME */}
-                <td
-                  style={{
-                    position: "sticky",
-                    left: 80,
-                    background: "#fff",
-                    border: "1px solid #eee",
-                    padding: 6,
-                    zIndex: 2,
-                    minWidth: 220,
-                  }}
-                >
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ ...cell, ...stickyLeft }}>{r["SR.NO"]}</td>
+                <td style={{ ...cell, ...stickyLeft2 }}>
                   {r["CUSTOMER NAME"]}
                 </td>
-
                 <td style={cell}>{r["LOCATION"]}</td>
                 <td style={cell}>{r["RFQ NO"]}</td>
                 <td style={cell}>{r["RFQ DATE"]}</td>
+                <td style={cell}>{r["UID NO"]}</td>
                 <td style={cell}>{r["PRODUCT"]}</td>
-
                 <td style={cell}>
-                  <span
-                    className={
-                      "px-2 py-1 rounded text-sm " +
-                      (STATUS_COLORS[r["FINAL STATUS"]] ||
-                        "bg-gray-100 text-gray-800")
-                    }
-                  >
-                    {r["FINAL STATUS"] || "UNKNOWN"}
+                  <span style={statusStyle(r["FINAL STATUS"])}>
+                    {r["FINAL STATUS"]}
                   </span>
                 </td>
               </tr>
@@ -146,18 +140,16 @@ export default function RFQPage() {
       </div>
 
       {/* PAGINATION */}
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 10 }}>
         <button
           disabled={page <= 1}
           onClick={() => setPage((p) => p - 1)}
         >
           Prev
         </button>
-
-        <span style={{ margin: "0 12px" }}>
+        <span style={{ margin: "0 10px" }}>
           Page {page} / {totalPages || 1}
         </span>
-
         <button
           disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
@@ -168,9 +160,3 @@ export default function RFQPage() {
     </div>
   );
 }
-
-const cell = {
-  border: "1px solid #eee",
-  padding: 6,
-  whiteSpace: "nowrap",
-};
