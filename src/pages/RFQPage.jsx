@@ -127,7 +127,7 @@ export default function RFQPage() {
                 <td style={cell}>{r["RFQ NO"]}</td>
                 <td style={cell}>{r["RFQ DATE"]}</td>
                 <td style={cell}>{r["UID NO"]}</td>
-                <td style={cell}>{r["PRODUCT"] ?? r["Product"] ?? r["product"] ?? ""}</td>
+                <td style={cell}>{r["PRODUCT"] ?? r["PRODUCT NAME"] ?? r["PRODUCT_DESC"] ?? r["PRODUCT DESCRIPTION"] ?? ""}</td>
                 <td style={cell}>
                   <span style={statusStyle(r["FINAL STATUS"])}>
                     {r["FINAL STATUS"]}
