@@ -1,3 +1,4 @@
+console.log("useRFQs fired");
 import { useEffect, useState, useCallback } from "react";
 import { fetchRFQs } from "../api/rfqs";
 
