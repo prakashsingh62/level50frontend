@@ -1,65 +1,77 @@
 import { useEffect, useState } from "react";
 import { fetchRFQs } from "../api/rfqs";
+import RFQTable from "../components/RFQTable";
+
+const STATUS_OPTIONS = [
+  "",
+  "VENDOR PENDING",
+  "QUOTATION RECEIVED",
+  "OFFER SUBMITTED",
+  "POST-OFFER QUERY",
+  "CLARIFICATION",
+  "UNKNOWN",
+];
 
 export default function RFQPage() {
   const [rows, setRows] = useState([]);
-  const [summary, setSummary] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const [status, setStatus] = useState("");
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetchRFQs({
-      status: status || undefined,
-      page,
-      page_size: 50,
-    }).then((d) => {
-      setRows(d.rows || []);
-      setSummary(d.summary || {});
-    });
-  }, [status, page]);
+    let active = true;
+    setLoading(true);
+    setError("");
+
+    fetchRFQs({ status, search })
+      .then((data) => {
+        if (active) setRows(data.rows || []);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [status, search]);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>RFQs</h2>
+    <div className="p-4 space-y-4">
+      <h1 className="text-xl font-semibold">RFQ Dashboard</h1>
 
-      {/* STATUS FILTER */}
-      <select value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="">ALL</option>
-        <option value="VENDOR_PENDING">Vendor Pending</option>
-        <option value="QUOTATION_RECEIVED">Quotation Received</option>
-        <option value="OFFER_SUBMITTED">Offer Submitted</option>
-        <option value="POST_OFFER_QUERY">Post-Offer Query</option>
-        <option value="CLOSED">Closed</option>
-      </select>
-
-      {/* SUMMARY */}
-      <pre>{JSON.stringify(summary, null, 2)}</pre>
-
-      {/* TABLE */}
-      <table border="1" cellPadding="6" style={{ marginTop: 10 }}>
-        <thead>
-          <tr>
-            <th>RFQ No</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Due Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td>{r["RFQ NO"]}</td>
-              <td>{r["CUSTOMER NAME"]}</td>
-              <td>{r.canonical_status}</td>
-              <td>{r["DUE DATE"]}</td>
-            </tr>
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="border px-2 py-1 rounded"
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {s || "All Status"}
+            </option>
           ))}
-        </tbody>
-      </table>
+        </select>
 
-      {/* PAGINATION */}
-      <button onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
-      <button onClick={() => setPage(p => p + 1)}>Next</button>
+        <input
+          placeholder="Search RFQ / Customer"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border px-2 py-1 rounded"
+        />
+      </div>
+
+      {/* States */}
+      {loading && <div>Loading…</div>}
+      {error && <div className="text-red-600">{error}</div>}
+
+      {!loading && !error && <RFQTable rows={rows} />}
     </div>
   );
 }
