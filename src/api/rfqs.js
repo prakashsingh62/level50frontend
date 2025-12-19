@@ -1,31 +1,32 @@
-// src/api/rfqs.js
-
-// 🔒 HARD FAIL-SAFE API BASE
-// - Uses Vercel env if present
-// - Falls back to Railway backend (production-safe)
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   "https://level50-backend-final-production-012c.up.railway.app";
 
 /**
- * fetchRFQs
- * Calls backend /rfqs/filter endpoint
- *
- * @param {Object} params
- * @param {AbortSignal} signal
- * @returns {Promise<Object>}
+ * Fetch RFQs (SAFE)
+ * - Does NOT send empty params
+ * - Backend-compatible
  */
 export async function fetchRFQs(params = {}, signal) {
-  const query = new URLSearchParams(params).toString();
-  const url = `${API_BASE}/rfqs/filter?${query}`;
+  const qs = new URLSearchParams();
 
-  // 🔍 DEBUG (you WILL see this in console)
+  if (params.last_n_days) qs.append("last_n_days", params.last_n_days);
+  if (params.page) qs.append("page", params.page);
+  if (params.page_size) qs.append("page_size", params.page_size);
+
+  // 🚨 CRITICAL FIX
+  if (params.status && params.status.trim() !== "") {
+    qs.append("status", params.status);
+  }
+
+  const url = `${API_BASE}/rfqs/filter?${qs.toString()}`;
+
   console.log("RFQ FETCH →", url);
 
   const res = await fetch(url, { signal });
 
   if (!res.ok) {
-    throw new Error(`RFQ API failed: ${res.status}`);
+    throw new Error(`RFQ fetch failed: ${res.status}`);
   }
 
   return res.json();
