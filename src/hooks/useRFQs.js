@@ -8,21 +8,12 @@ export default function useRFQs({
   pageSize = 50,
 } = {}) {
   const [rows, setRows] = useState([]);
-  const [summary, setSummary] = useState({});
-  const [meta, setMeta] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("🚀 useRFQs FIRED with params:", { lastNDays, status, page, pageSize });
+    console.log("🔥 useRFQs called with:", { lastNDays, status, page, pageSize });
 
     async function load() {
-      setLoading(true);
-      setError(null);
-      setRows([]); // Clear previous data
-      setSummary({});
-      setMeta({});
-
       try {
         const data = await fetchRFQs({
           last_n_days: lastNDays,
@@ -31,33 +22,24 @@ export default function useRFQs({
           page_size: pageSize,
         });
 
-        console.log("✅ fetchRFQs RETURNED:", {
-          rowsCount: data.rows?.length || 0,
-          rowsSample: data.rows?.slice(0, 2),
-          summary: data.summary,
-          meta: data.meta
-        });
+        console.log("🔥 fetchRFQs returned:", data);
+        console.log("🔥 Rows length:", data.rows?.length);
         
-        // ✅ Now data.rows will exist
+        // FORCE SET DATA (even if empty)
         setRows(data.rows || []);
-        setSummary(data.summary || {});
-        setMeta(data.meta || {});
         
-        // Debug log
+        // DEBUG: Alert if data exists
         if (data.rows && data.rows.length > 0) {
-          console.log(`🎉 SUCCESS: Loaded ${data.rows.length} RFQs`);
-          console.log("📋 First row fields:", Object.keys(data.rows[0]));
-          console.log("📋 First row values:", data.rows[0]);
-        } else {
-          console.log("⚠️ WARNING: No rows in response");
-          console.log("Full data object:", data);
+          console.log("✅ DATA READY FOR TABLE");
+          // Temporary alert
+          setTimeout(() => {
+            alert(`✅ ${data.rows.length} RFQs loaded in hook!\nCheck table now.`);
+          }, 500);
         }
+        
       } catch (e) {
-        console.error("❌ RFQ fetch failed", e);
-        setError(e.message || "Failed to load RFQs");
+        console.error("❌ Error in useRFQs:", e);
         setRows([]);
-        setSummary({});
-        setMeta({});
       } finally {
         setLoading(false);
       }
@@ -68,9 +50,9 @@ export default function useRFQs({
 
   return { 
     rows, 
-    summary, 
-    meta, 
+    meta: { total: rows.length }, 
+    summary: {}, 
     loading, 
-    error 
+    error: null 
   };
 }
