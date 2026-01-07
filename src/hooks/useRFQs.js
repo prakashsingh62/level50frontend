@@ -14,11 +14,14 @@ export default function useRFQs({
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log("useRFQs fired");
+    console.log("🚀 useRFQs FIRED with params:", { lastNDays, status, page, pageSize });
 
     async function load() {
       setLoading(true);
       setError(null);
+      setRows([]); // Clear previous data
+      setSummary({});
+      setMeta({});
 
       try {
         const data = await fetchRFQs({
@@ -28,12 +31,33 @@ export default function useRFQs({
           page_size: pageSize,
         });
 
-        setRows(Array.isArray(data.rows) ? data.rows : []);
+        console.log("✅ fetchRFQs RETURNED:", {
+          rowsCount: data.rows?.length || 0,
+          rowsSample: data.rows?.slice(0, 2),
+          summary: data.summary,
+          meta: data.meta
+        });
+        
+        // ✅ Now data.rows will exist
+        setRows(data.rows || []);
         setSummary(data.summary || {});
         setMeta(data.meta || {});
+        
+        // Debug log
+        if (data.rows && data.rows.length > 0) {
+          console.log(`🎉 SUCCESS: Loaded ${data.rows.length} RFQs`);
+          console.log("📋 First row fields:", Object.keys(data.rows[0]));
+          console.log("📋 First row values:", data.rows[0]);
+        } else {
+          console.log("⚠️ WARNING: No rows in response");
+          console.log("Full data object:", data);
+        }
       } catch (e) {
-        console.error("RFQ fetch failed", e);
+        console.error("❌ RFQ fetch failed", e);
         setError(e.message || "Failed to load RFQs");
+        setRows([]);
+        setSummary({});
+        setMeta({});
       } finally {
         setLoading(false);
       }
@@ -42,5 +66,11 @@ export default function useRFQs({
     load();
   }, [lastNDays, status, page, pageSize]);
 
-  return { rows, summary, meta, loading, error };
+  return { 
+    rows, 
+    summary, 
+    meta, 
+    loading, 
+    error 
+  };
 }
