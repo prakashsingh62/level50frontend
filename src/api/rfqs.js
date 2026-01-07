@@ -1,6 +1,6 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
-  "https://level50-backend-final-production-012c.up.railway.app";
+  "https://level50-backend-final.onrender.com";  // ✅ FIX 1: CORRECT DEFAULT
 
 /**
  * Fetch RFQs (SAFE)
@@ -19,7 +19,7 @@ export async function fetchRFQs(params = {}, signal) {
     qs.append("status", params.status);
   }
 
-  const url = `${API_BASE}/rfqs/filter?${qs.toString()}`;
+  const url = `${API_BASE}/rfqs/filter1?${qs.toString()}`;  // ✅ FIX 2: CORRECT ENDPOINT
 
   console.log("RFQ FETCH →", url);
 
