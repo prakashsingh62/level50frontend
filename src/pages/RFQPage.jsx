@@ -54,74 +54,97 @@ const statusStyle = (s) => {
   };
 };
 
-/* ================== SAFE PRODUCT RESOLVER ================== */
-/* Backend column naam kuch bhi ho, product miss nahi hoga */
-
-function getProduct(r) {
-  return (
-    r["PRODUCT"] ||
-    r["Product"] ||
-    r["product"] ||
-    r["ITEM"] ||
-    r["ITEM NAME"] ||
-    r["ITEM DESCRIPTION"] ||
-    r["PRODUCT NAME"] ||
-    r["PRODUCT_DESC"] ||
-    r["PRODUCT DESCRIPTION"] ||
-    ""
-  );
-}
-
 /* ================== COMPONENT ================== */
 
 export default function RFQPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
 
-  const { rows, meta, summary, loading } = useRFQs({
+  const { rows, meta, summary, loading, error } = useRFQs({
     status,
     page,
     pageSize: 50,
   });
 
+  console.log("📊 RFQPage RENDER:", {
+    rowsCount: rows.length,
+    loading,
+    error,
+    firstRow: rows[0],
+    meta,
+    summary
+  });
+
   const totalPages = Math.ceil((meta?.total || 0) / 50);
+
+  // ✅ SIMPLIFIED PRODUCT GETTER (Now rows are already transformed)
+  function getProduct(r) {
+    return r['PRODUCT'] || "";
+  }
 
   return (
     <div style={{ padding: 16 }}>
       <h2>RFQ Dashboard</h2>
 
+      {/* DEBUG INFO */}
+      {error && (
+        <div style={{ background: "#ffebee", color: "#c62828", padding: 10, marginBottom: 10, borderRadius: 4 }}>
+          ❌ Error: {error}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ background: "#fff3e0", padding: 10, marginBottom: 10, borderRadius: 4 }}>
+          🔄 Loading RFQs...
+        </div>
+      )}
+
+      {!loading && rows.length > 0 && (
+        <div style={{ background: "#e8f5e9", padding: 10, marginBottom: 10, borderRadius: 4 }}>
+          ✅ Loaded {rows.length} RFQs (Total: {meta.total || 0})
+        </div>
+      )}
+
       {/* STATUS FILTER */}
-      <select
-        value={status}
-        onChange={(e) => {
-          setStatus(e.target.value);
-          setPage(1);
-        }}
-        style={{ padding: 6, marginBottom: 10 }}
-      >
-        <option value="">ALL STATUS</option>
-        {Object.entries(summary || {}).map(([k, v]) => (
-          <option key={k} value={k}>
-            {k} ({v})
-          </option>
-        ))}
-      </select>
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ marginRight: 10, fontWeight: "bold" }}>Filter by Status:</label>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+          style={{ 
+            padding: "8px 12px", 
+            border: "1px solid #ccc",
+            borderRadius: 4,
+            minWidth: 200
+          }}
+        >
+          <option value="">ALL STATUS ({meta.total || 0})</option>
+          {Object.entries(summary || {}).map(([statusKey, count]) => (
+            <option key={statusKey} value={statusKey}>
+              {statusKey} ({count})
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* TABLE */}
-      <div style={{ overflow: "auto", maxHeight: "70vh" }}>
+      <div style={{ overflow: "auto", maxHeight: "70vh", border: "1px solid #ddd", borderRadius: 4 }}>
         <table
           style={{
             borderCollapse: "collapse",
             width: "100%",
             minWidth: 1400,
+            fontFamily: "Arial, sans-serif",
+            fontSize: "14px"
           }}
         >
           <thead>
             <tr>
               <th style={{ ...th, ...stickyLeft, width: 80 }}>SR.NO</th>
-              <th style={{ ...th, ...stickyLeft2, width: 260 }}>
-                CUSTOMER NAME
-              </th>
+              <th style={{ ...th, ...stickyLeft2, width: 260 }}>CUSTOMER NAME</th>
               <th style={th}>LOCATION</th>
               <th style={th}>RFQ NO</th>
               <th style={th}>RFQ DATE</th>
@@ -132,28 +155,42 @@ export default function RFQPage() {
           </thead>
 
           <tbody>
-            {!loading && rows.length === 0 && (
+            {loading && (
               <tr>
-                <td colSpan={8} style={{ padding: 20, textAlign: "center" }}>
-                  No RFQs in this status
+                <td colSpan={8} style={{ padding: 40, textAlign: "center" }}>
+                  <div>Loading RFQs...</div>
                 </td>
               </tr>
             )}
 
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td style={{ ...cell, ...stickyLeft }}>{r["SR.NO"]}</td>
-                <td style={{ ...cell, ...stickyLeft2 }}>
-                  {r["CUSTOMER NAME"]}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#666" }}>
+                  {error ? `Error: ${error}` : "No RFQs found"}
                 </td>
-                <td style={cell}>{r["LOCATION"]}</td>
-                <td style={cell}>{r["RFQ NO"]}</td>
-                <td style={cell}>{r["RFQ DATE"]}</td>
-                <td style={cell}>{r["UID NO"]}</td>
-                <td style={cell}>{Object.entries(r).find(([k]) => k.trim().toUpperCase() === "PRODUCT")?.[1] || ""}</td>
+              </tr>
+            )}
+
+            {!loading && rows.map((r, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
+                <td style={{ ...cell, ...stickyLeft, textAlign: "center" }}>
+                  {r['SR.NO'] || i + 1}
+                </td>
+                <td style={{ ...cell, ...stickyLeft2, fontWeight: "500" }}>
+                  {r['CUSTOMER NAME'] || "N/A"}
+                </td>
+                <td style={cell}>{r['LOCATION'] || "N/A"}</td>
                 <td style={cell}>
-                  <span style={statusStyle(r["FINAL STATUS"])}>
-                    {r["FINAL STATUS"]}
+                  <span style={{ fontFamily: "monospace", fontWeight: "bold" }}>
+                    {r['RFQ NO'] || "N/A"}
+                  </span>
+                </td>
+                <td style={cell}>{r['RFQ DATE'] || "N/A"}</td>
+                <td style={cell}>{r['UID NO'] || "N/A"}</td>
+                <td style={cell}>{getProduct(r)}</td>
+                <td style={cell}>
+                  <span style={statusStyle(r['FINAL STATUS'])}>
+                    {r['FINAL STATUS'] || "UNKNOWN"}
                   </span>
                 </td>
               </tr>
@@ -163,23 +200,50 @@ export default function RFQPage() {
       </div>
 
       {/* PAGINATION */}
-      <div style={{ marginTop: 10 }}>
-        <button
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          Prev
-        </button>
-        <span style={{ margin: "0 10px" }}>
-          Page {page} / {totalPages || 1}
-        </span>
-        <button
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </button>
-      </div>
+      {!loading && rows.length > 0 && (
+        <div style={{ 
+          marginTop: 20, 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "center",
+          gap: "10px"
+        }}>
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{
+              padding: "8px 16px",
+              border: "1px solid #ccc",
+              background: page <= 1 ? "#f5f5f5" : "#fff",
+              cursor: page <= 1 ? "not-allowed" : "pointer",
+              borderRadius: 4
+            }}
+          >
+            ← Prev
+          </button>
+          
+          <span style={{ margin: "0 10px", fontWeight: "500" }}>
+            Page <strong>{page}</strong> of <strong>{totalPages || 1}</strong>
+            <span style={{ marginLeft: 20, color: "#666" }}>
+              (Showing {rows.length} of {meta.total || 0} RFQs)
+            </span>
+          </span>
+          
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{
+              padding: "8px 16px",
+              border: "1px solid #ccc",
+              background: page >= totalPages ? "#f5f5f5" : "#fff",
+              cursor: page >= totalPages ? "not-allowed" : "pointer",
+              borderRadius: 4
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
